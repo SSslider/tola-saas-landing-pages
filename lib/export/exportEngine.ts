@@ -1,15 +1,7 @@
 import { ProjectDefinition } from '@/types';
 
-export function downloadProjectManifest(project: ProjectDefinition) {
-  if (typeof window === 'undefined') return;
-  
-  const rootElement = document.getElementById('tola-render-root');
-  if (!rootElement) {
-    alert('לא ניתן לייצא את האתר: רכיב התצוגה המקדימה אינו מרונדר במסך כרגע.');
-    return;
-  }
-  
-  const htmlContent = `
+export function generateStaticHtml(project: ProjectDefinition, rootHtml: string): string {
+  return `
 <!DOCTYPE html>
 <html dir="rtl" lang="he">
 <head>
@@ -43,10 +35,22 @@ export function downloadProjectManifest(project: ProjectDefinition) {
   </style>
 </head>
 <body>
-  ${rootElement.outerHTML}
+  ${rootHtml}
 </body>
 </html>
-  `;
+  `.trim();
+}
+
+export function downloadProjectManifest(project: ProjectDefinition) {
+  if (typeof window === 'undefined') return;
+  
+  const rootElement = document.getElementById('tola-render-root');
+  if (!rootElement) {
+    alert('לא ניתן לייצא את האתר: רכיב התצוגה המקדימה אינו מרונדר במסך כרגע.');
+    return;
+  }
+  
+  const htmlContent = generateStaticHtml(project, rootElement.outerHTML);
 
   const blob = new Blob([htmlContent.trim()], { type: 'text/html;charset=utf-8' });
   const url = URL.createObjectURL(blob);

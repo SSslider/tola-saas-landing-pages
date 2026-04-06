@@ -6,6 +6,7 @@ import { ProjectDefinition } from '@/types';
 import { getProjectById, saveProject } from '@/lib/projects/storage';
 import { EditorSidebar } from '@/components/editor/EditorSidebar';
 import { RenderProject } from '@/components/engine/RenderProject';
+import { generateStaticHtml } from '@/lib/export/exportEngine';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Monitor, Smartphone } from 'lucide-react';
 import Link from 'next/link';
@@ -34,13 +35,45 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
     setSavedStatus('unsaved');
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!project) return;
     setSavedStatus('saving');
-    setTimeout(() => {
-      saveProject(project);
-      setSavedStatus('saved');
-    }, 500); // Simulate network
+    
+    // Save to local storage
+    saveProject(project);
+
+    // Sync to GitHub
+    try {
+      const rootElement = document.getElementById('tola-render-root');
+      if (rootElement) {
+        const htmlContent = generateStaticHtml(project, rootElement.outerHTML);
+        
+        const res = await fetch('/api/github/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            slug: project.slug, 
+            projectName: project.projectName,
+            htmlContent 
+          })
+        });
+        
+        if (!res.ok) {
+          const data = await res.json();
+          console.warn('GitHub Sync Issue:', data.error);
+          alert('שגיאה בסנכרון מול GitHub: לא הוגדר משתנה GITHUB_TOKEN במערכת. לחלופין, המאגר נשמר בהצלחה רק בזיכרון המחשב (Local Storage).');
+        } else {
+          const data = await res.json();
+          console.log('Successfully synced strictly to GitHub repository!');
+          alert(`מעולה! הדף סונכרן ונשמר כפרויקט חדש ב-GitHub בכתובת:\n\n${data.repoUrl}`);
+        }
+      }
+    } catch (e) {
+      console.error('Save sync error:', e);
+      alert('קרתה שגיאה מול השרת במהלך הניסיון לגבות ב-GitHub.');
+    }
+    
+    setSavedStatus('saved');
   };
 
   if (!isClient || !project) return <div className="h-screen flex items-center justify-center font-medium bg-slate-50">טוען סביבת עריכה...</div>;
